@@ -16,9 +16,22 @@ RegisterCommand("gov", function(source, args)
         return
     end
 
+    local header, color
+    if job == "police" then
+        header = "[Gov - Police]"
+        color = { 0, 102, 204 } -- blue
+    else
+        header = "[Government]"
+        color = { 255, 0, 0 } -- red
+    end
+
+    local firstname = Player.PlayerData.charinfo.firstname or ""
+    local lastname = Player.PlayerData.charinfo.lastname or ""
+    local name = firstname .. " " .. lastname
+
     TriggerClientEvent('chat:addMessage', -1, {
-        color = { 255, 0, 0 },
+        color = color,
         multiline = true,
-        args = { "[Government]", msg }
+        args = { header, name .. ": " .. msg }
     })
 end, false)

@@ -29,9 +29,14 @@ RegisterCommand("gov", function(source, args)
     local lastname = Player.PlayerData.charinfo.lastname or ""
     local name = firstname .. " " .. lastname
 
-    TriggerClientEvent('chat:addMessage', -1, {
-        color = color,
-        multiline = true,
-        args = { header, name .. ": " .. msg }
-    })
+    for _, v in pairs(QBCore.Functions.GetPlayers()) do
+        local target = QBCore.Functions.GetPlayer(v)
+        if target and (target.PlayerData.job.name == "police" or target.PlayerData.job.name == "ambulance") then
+            TriggerClientEvent('chat:addMessage', v, {
+                color = color,
+                multiline = true,
+                args = { header, name .. ": " .. msg }
+            })
+        end
+    end
 end, false)

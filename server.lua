@@ -1,5 +1,3 @@
--- TBA (automatic on jobUpdate do 10-7 out of service and 10-8 in service)
-
 local QBCore = exports['qb-core']:GetCoreObject()
 
 local govQuickMsgs = {
@@ -45,6 +43,57 @@ local govQuickMsgs = {
     --["code 11"] = "TFU required",
     ["code 4"] = "Code 4: Situation requires no further assistance."
 }
+
+AddEventHandler('chatMessage', function(source, name, msg)
+    CancelEvent()
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    if string.sub(msg, 1, 1) == "/" then
+        return -- allow commands
+    end
+
+    local firstname = Player.PlayerData.charinfo.firstname or ""
+    local lastname = Player.PlayerData.charinfo.lastname or ""
+    local rpname = firstname .. " " .. lastname
+
+    local srcPed = GetPlayerPed(source)
+    local srcCoords = GetEntityCoords(srcPed)
+
+    for _, v in pairs(QBCore.Functions.GetPlayers()) do
+        local tgtPed = GetPlayerPed(v)
+        local tgtCoords = GetEntityCoords(tgtPed)
+        local dist = #(srcCoords - tgtCoords)
+        if dist <= 20.0 then -- Change distance for "vicinity" as needed
+            TriggerClientEvent('chat:addMessage', v, {
+                color = { 130, 130, 255 },
+                multiline = true,
+                args = { "(Vicinity)", rpname .. ": " .. msg }
+            })
+        end
+    end
+end)
+
+RegisterCommand("ooc", function(source, args)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    local msg = table.concat(args, " ")
+    if msg == "" then
+        TriggerClientEvent('QBCore:Notify', source, "You must enter a message.", "error")
+        return
+    end
+
+    local firstname = Player.PlayerData.charinfo.firstname or ""
+    local lastname = Player.PlayerData.charinfo.lastname or ""
+    local rpname = firstname .. " " .. lastname
+
+    TriggerClientEvent('chat:addMessage', -1, {
+        color = { 220, 220, 220 },
+        multiline = true,
+        args = { "(OOC)", rpname .. ": " .. msg }
+    })
+end, false)
 
 RegisterCommand("gov", function(source, args)
     local Player = QBCore.Functions.GetPlayer(source)
@@ -103,8 +152,6 @@ RegisterCommand("gov", function(source, args)
     end
 end, false)
 
---NEW /panic
-
 RegisterCommand("panic", function(source, args)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return end
@@ -148,8 +195,6 @@ RegisterCommand("panic", function(source, args)
         end
     end
 end, false)
-
--- END OF /PANIC
 
 RegisterCommand("broadcast", function(source, args)
     local Player = QBCore.Functions.GetPlayer(source)

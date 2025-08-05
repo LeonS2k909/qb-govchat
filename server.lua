@@ -2,6 +2,8 @@ local QBCore = exports['qb-core']:GetCoreObject()
 
 local govQuickMsgs = {
     ["10-4"] = "10-4: Understood.",
+    ["10-19"] = "Returning to station.",
+    ["10-98"] = "Available to assign.",
     ["code 4"] = "Code 4: Situation requires no further assistance."
 }
 

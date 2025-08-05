@@ -1,5 +1,10 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
+local govQuickMsgs = {
+    ["10-4"] = "10-4: Understood.",
+    ["code 4"] = "Code 4: Situation requires no further assistance."
+}
+
 RegisterCommand("gov", function(source, args)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return end
@@ -14,6 +19,14 @@ RegisterCommand("gov", function(source, args)
     if msg == "" then
         TriggerClientEvent('QBCore:Notify', source, "You must enter a message.", "error")
         return
+    end
+
+    -- Quick responses for police
+    if job == "police" then
+        local lowerMsg = string.lower(msg)
+        if govQuickMsgs[lowerMsg] then
+            msg = govQuickMsgs[lowerMsg]
+        end
     end
 
     local header, color

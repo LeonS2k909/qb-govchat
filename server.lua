@@ -17,6 +17,7 @@ local govQuickMsgs = {
     ["10-72"] = "Knifing",
     ["10-98"] = "Available to assign.",
     ["10-91v"] = "Vicious animal",
+    ["10-95"] = "Traffic stop",
     ["10-56A"] = "Suicide attempt",
     ["10-57"] = "Firearm discharged",
     ["10-71"] = "Shooting",

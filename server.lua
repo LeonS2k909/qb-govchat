@@ -4,7 +4,7 @@ local govQuickMsgs = {
     ["10-3"] = "Stop trasmitting.",
     ["10-4"] = "10-4: Understood.",
     ["10-9"] = "Repeat last transmission.",
-    ["10-13"] = "Avice weather and road conditions.",
+    ["10-13"] = "Advise weather and road conditions.",
     ["10-19"] = "Returning to station.",
     ["10-20"] = "Location?",
     ["10-23"] = "Standby.",
@@ -228,3 +228,4 @@ RegisterCommand("broadcast", function(source, args)
         args = { header, msg }
     })
 end, false)
+

@@ -45,6 +45,11 @@ local govQuickMsgs = {
     ["code 4"] = "Code 4: Situation requires no further assistance."
 }
 
+local broadcastCooldowns = {}
+local messageTracking = {}
+
+local lastChatMessageTime = GetGameTimer() -- Our inactivity tracker
+
 AddEventHandler('chatMessage', function(source, name, msg)
     CancelEvent()
     local Player = QBCore.Functions.GetPlayer(source)
@@ -65,7 +70,7 @@ AddEventHandler('chatMessage', function(source, name, msg)
         local tgtPed = GetPlayerPed(v)
         local tgtCoords = GetEntityCoords(tgtPed)
         local dist = #(srcCoords - tgtCoords)
-        if dist <= 20.0 then -- Change distance for "vicinity" as needed
+        if dist <= 20.0 then
             TriggerClientEvent('chat:addMessage', v, {
                 color = { 130, 130, 255 },
                 multiline = true,
@@ -73,6 +78,7 @@ AddEventHandler('chatMessage', function(source, name, msg)
             })
         end
     end
+    lastChatMessageTime = GetGameTimer()
 end)
 
 RegisterCommand("ooc", function(source, args)
@@ -94,6 +100,7 @@ RegisterCommand("ooc", function(source, args)
         multiline = true,
         args = { "(OOC)", rpname .. ": " .. msg }
     })
+    lastChatMessageTime = GetGameTimer()
 end, false)
 
 RegisterCommand("gov", function(source, args)
@@ -120,7 +127,6 @@ RegisterCommand("gov", function(source, args)
     end
 
     local msg = table.concat(args, " ")
-
     if job == "police" then
         local lowerMsg = string.lower(msg)
         if govQuickMsgs[lowerMsg] then
@@ -131,15 +137,17 @@ RegisterCommand("gov", function(source, args)
     local header, color
     if job == "police" then
         header = "[Gov - Police]"
-        color = { 0, 102, 204 } -- blue
+        color = { 0, 102, 204 }
     else
         header = "[Government]"
-        color = { 255, 0, 0 } -- red
+        color = { 255, 0, 0 }
     end
 
     local firstname = Player.PlayerData.charinfo.firstname or ""
     local lastname = Player.PlayerData.charinfo.lastname or ""
     local name = firstname .. " " .. lastname
+
+    local messageId = tostring(GetGameTimer()) .. "_" .. source
 
     for _, v in pairs(QBCore.Functions.GetPlayers()) do
         local target = QBCore.Functions.GetPlayer(v)
@@ -149,8 +157,22 @@ RegisterCommand("gov", function(source, args)
                 multiline = true,
                 args = { header, name .. ": " .. msg }
             })
+            messageTracking[messageId] = {
+                player = v,
+                message = header .. " " .. name .. ": " .. msg,
+                time = GetGameTimer()
+            }
         end
     end
+
+    Citizen.CreateThread(function()
+        Wait(10000)
+        if messageTracking[messageId] then
+            messageTracking[messageId] = nil
+        end
+    end)
+
+    lastChatMessageTime = GetGameTimer()
 end, false)
 
 RegisterCommand("panic", function(source, args)
@@ -164,7 +186,6 @@ RegisterCommand("panic", function(source, args)
     end
 
     local msg = table.concat(args, " ")
-
     if job == "police" then
         local lowerMsg = string.lower(msg)
         if govQuickMsgs[lowerMsg] then
@@ -175,15 +196,17 @@ RegisterCommand("panic", function(source, args)
     local header, color
     if job == "police" then
         header = "[PANIC. Gov - Police]"
-        color = { 255, 0, 0  } -- red
+        color = { 255, 0, 0 }
     else
         header = "[Government]"
-        color = { 255, 0, 0 } -- red
+        color = { 255, 0, 0 }
     end
 
     local firstname = Player.PlayerData.charinfo.firstname or ""
     local lastname = Player.PlayerData.charinfo.lastname or ""
     local name = firstname .. " " .. lastname
+
+    local messageId = tostring(GetGameTimer()) .. "_" .. source
 
     for _, v in pairs(QBCore.Functions.GetPlayers()) do
         local target = QBCore.Functions.GetPlayer(v)
@@ -193,8 +216,22 @@ RegisterCommand("panic", function(source, args)
                 multiline = true,
                 args = { header, name .. ": " .. msg }
             })
+            messageTracking[messageId] = {
+                player = v,
+                message = header .. " " .. name .. ": " .. msg,
+                time = GetGameTimer()
+            }
         end
     end
+
+    Citizen.CreateThread(function()
+        Wait(10000)
+        if messageTracking[messageId] then
+            messageTracking[messageId] = nil
+        end
+    end)
+
+    lastChatMessageTime = GetGameTimer()
 end, false)
 
 RegisterCommand("broadcast", function(source, args)
@@ -207,25 +244,220 @@ RegisterCommand("broadcast", function(source, args)
         return
     end
 
+    -- Check cooldown
+    if broadcastCooldowns[source] and broadcastCooldowns[source] > GetGameTimer() then
+        local remaining = math.ceil((broadcastCooldowns[source] - GetGameTimer()) / 1000)
+        TriggerClientEvent('QBCore:Notify', source, "You must wait " .. remaining .. " seconds before sending another broadcast.", "error")
+        return
+    end
+
     local msg = table.concat(args, " ")
     if msg == "" then
         TriggerClientEvent('QBCore:Notify', source, "You must enter a message.", "error")
         return
     end
 
+    -- Set cooldown (5 seconds)
+    broadcastCooldowns[source] = GetGameTimer() + 5000
+
     local header, color
     if job == "police" then
         header = "(Broadcast) [Gov - Police]"
-        color = { 0, 102, 204 } -- blue
+        color = { 0, 102, 204 }
     else
         header = "(Broadcast) [Government]"
-        color = { 255, 0, 0 } -- red
+        color = { 255, 0, 0 }
     end
+
+    local messageId = tostring(GetGameTimer()) .. "_" .. source
 
     TriggerClientEvent('chat:addMessage', -1, {
         color = color,
         multiline = true,
         args = { header, msg }
     })
+
+    Citizen.CreateThread(function()
+        Wait(10000)
+        if messageTracking[messageId] then
+            messageTracking[messageId] = nil
+        end
+    end)
+
+    lastChatMessageTime = GetGameTimer()
 end, false)
+
+AddEventHandler('playerDropped', function(source)
+    broadcastCooldowns[source] = nil
+end)
+
+RegisterNetEvent('qb-chat:server:deleteMessage')
+AddEventHandler('qb-chat:server:deleteMessage', function(messageId)
+    messageTracking[messageId] = nil
+end)
+
+RegisterCommand('clear', function(source, args, raw)
+    TriggerClientEvent('chat:clear', -1)
+end, false)
+
+-- ===========================================
+-- 5-Second Chat Clearer (core logic)
+-- ===========================================
+Citizen.CreateThread(function()
+    while true do
+        Citizen.Wait(30000) -- Wait 30,000 ms (30 seconds)
+        if (GetGameTimer() - lastChatMessageTime) >= 30000 then -- 30,000 ms = 30 sec
+            TriggerClientEvent('chat:clear', -1)
+            lastChatMessageTime = GetGameTimer()
+        end
+    end
+end)
+
+
+--LOOC
+
+RegisterCommand("looc", function(source, args)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    local msg = table.concat(args, " ")
+    if msg == "" then
+        TriggerClientEvent('QBCore:Notify', source, "You must enter a message.", "error")
+        return
+    end
+
+    local firstname = Player.PlayerData.charinfo.firstname or ""
+    local lastname = Player.PlayerData.charinfo.lastname or ""
+    local rpname = firstname .. " " .. lastname
+
+    local srcPed = GetPlayerPed(source)
+    local srcCoords = GetEntityCoords(srcPed)
+
+    for _, v in pairs(QBCore.Functions.GetPlayers()) do
+        local tgtPed = GetPlayerPed(v)
+        local tgtCoords = GetEntityCoords(tgtPed)
+        local dist = #(srcCoords - tgtCoords)
+        if dist <= 20.0 then
+            TriggerClientEvent('chat:addMessage', v, {
+                color = { 255, 135, 0 },
+                multiline = true,
+                args = { "(LOOC)", rpname .. ": " .. msg }
+            })
+        end
+    end
+end, false)
+
+local function handleYellCommand(source, args)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    local msg = table.concat(args, " ")
+    if msg == "" then
+        TriggerClientEvent('QBCore:Notify', source, "You must enter a message.", "error")
+        return
+    end
+
+    local firstname = Player.PlayerData.charinfo.firstname or ""
+    local lastname = Player.PlayerData.charinfo.lastname or ""
+    local rpname = firstname .. " " .. lastname
+
+    local srcPed = GetPlayerPed(source)
+    local srcCoords = GetEntityCoords(srcPed)
+
+    for _, v in pairs(QBCore.Functions.GetPlayers()) do
+        local tgtPed = GetPlayerPed(v)
+        local tgtCoords = GetEntityCoords(tgtPed)
+        local dist = #(srcCoords - tgtCoords)
+        if dist <= 40.0 then
+            TriggerClientEvent('chat:addMessage', v, {
+                color = { 255, 255, 0 }, -- Yellow
+                multiline = true,
+                args = { "(YELL)", rpname .. ": " .. msg }
+            })
+        end
+    end
+end
+
+RegisterCommand("yell", handleYellCommand, false)
+RegisterCommand("shout", handleYellCommand, false)
+
+
+local function handleWhisperCommand(source, args)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    local msg = table.concat(args, " ")
+    if msg == "" then
+        TriggerClientEvent('QBCore:Notify', source, "You must enter a message.", "error")
+        return
+    end
+
+    local firstname = Player.PlayerData.charinfo.firstname or ""
+    local lastname = Player.PlayerData.charinfo.lastname or ""
+    local rpname = firstname .. " " .. lastname
+
+    local srcPed = GetPlayerPed(source)
+    local srcCoords = GetEntityCoords(srcPed)
+
+    for _, v in pairs(QBCore.Functions.GetPlayers()) do
+        local tgtPed = GetPlayerPed(v)
+        local tgtCoords = GetEntityCoords(tgtPed)
+        local dist = #(srcCoords - tgtCoords)
+        if dist <= 4.0 then -- whisper distance
+            TriggerClientEvent('chat:addMessage', v, {
+                color = { 180, 180, 255 }, -- soft blue
+                multiline = true,
+                args = { "(Whisper)", rpname .. ": " .. msg }
+            })
+        end
+    end
+end
+
+RegisterCommand("whisper", handleWhisperCommand, false)
+RegisterCommand("w", handleWhisperCommand, false)
+
+local function handleRollCommand(source, args)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then return end
+
+    local min, max = 1, 100 -- default dice range
+
+    if #args == 1 then
+        max = tonumber(args[1]) or 100
+    elseif #args == 2 then
+        min = tonumber(args[1]) or 1
+        max = tonumber(args[2]) or 100
+    end
+
+    if min >= max then
+        TriggerClientEvent('QBCore:Notify', source, "Invalid range.", "error")
+        return
+    end
+
+    local result = math.random(min, max)
+
+    local firstname = Player.PlayerData.charinfo.firstname or ""
+    local lastname = Player.PlayerData.charinfo.lastname or ""
+    local rpname = firstname .. " " .. lastname
+
+    local srcPed = GetPlayerPed(source)
+    local srcCoords = GetEntityCoords(srcPed)
+
+    for _, v in pairs(QBCore.Functions.GetPlayers()) do
+        local tgtPed = GetPlayerPed(v)
+        local tgtCoords = GetEntityCoords(tgtPed)
+        local dist = #(srcCoords - tgtCoords)
+        if dist <= 20.0 then -- vicinity distance
+            TriggerClientEvent('chat:addMessage', v, {
+                color = { 120, 255, 120 }, -- green
+                multiline = true,
+                args = { "(Roll)", rpname .. " rolls a dice [" .. min .. "-" .. max .. "] and gets: " .. result }
+            })
+        end
+    end
+end
+
+RegisterCommand("roll", handleRollCommand, false)
+RegisterCommand("dice", handleRollCommand, false)
+
 
